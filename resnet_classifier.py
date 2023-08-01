@@ -204,20 +204,36 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g", "--gpus", help="""Enables GPU acceleration.""", type=int, default=None
     )
+    parser.add_argument('--from-pretrained', type=str, default=None, help='Load pretrained weights')
     args = parser.parse_args()
 
-    model = ResNetClassifier(
-        num_classes=args.num_classes,
-        resnet_version=args.model,
-        train_path=args.train_set,
-        val_path=args.val_set,
-        test_path=args.test_set,
-        optimizer=args.optimizer,
-        lr=args.learning_rate,
-        batch_size=args.batch_size,
-        transfer=args.transfer,
-        tune_fc_only=args.tune_fc_only,
-    )
+    if args.from_pretrained is not None:
+        model = ResNetClassifier.load_from_checkpoint(
+            args.from_pretrained,
+            num_classes=args.num_classes,
+            resnet_version=args.model,
+            train_path=args.train_set,
+            val_path=args.val_set,
+            test_path=args.test_set,
+            optimizer=args.optimizer,
+            lr=args.learning_rate,
+            batch_size=args.batch_size,
+            transfer=args.transfer,
+            tune_fc_only=args.tune_fc_only,
+        )
+    else:
+        model = ResNetClassifier(
+            num_classes=args.num_classes,
+            resnet_version=args.model,
+            train_path=args.train_set,
+            val_path=args.val_set,
+            test_path=args.test_set,
+            optimizer=args.optimizer,
+            lr=args.learning_rate,
+            batch_size=args.batch_size,
+            transfer=args.transfer,
+            tune_fc_only=args.tune_fc_only,
+        )
 
     save_path = args.save_path if args.save_path is not None else "./models"
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
