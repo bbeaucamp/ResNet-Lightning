@@ -72,7 +72,7 @@ class ResNetClassifier(pl.LightningModule):
             weights=self.weights[resnet_version]
         self.resnet_model = self.resnets[resnet_version](weights=weights)
         # Inference transforms. Potential improvement: use train transforms from pytorch recipes (flip, ...)
-        self.transforms = self.weights[resnet_version].transforms
+        self.transforms = self.weights[resnet_version].transforms()
         # Replace old FC layer with Identity so we can train our own
         linear_size = list(self.resnet_model.children())[-1].in_features
         # replace final layer for fine tuning
