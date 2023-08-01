@@ -227,15 +227,15 @@ if __name__ == "__main__":
         save_last=True,
     )
 
-    stopping_callback = pl.callbacks.EarlyStopping()
+    stopping_callback = pl.callbacks.EarlyStopping(monitor="val_loss", mode="min")
 
     # Instantiate lightning trainer and train model
     trainer_args = {
         "accelerator": "gpu" if args.gpus else None,
-        "devices": [1],
-        "strategy": "dp" if args.gpus > 1 else None,
+       "devices": [0],
+        "strategy": "ddp" if args.gpus > 1 else "auto",
         "max_epochs": args.num_epochs,
-        "callbacks": [checkpoint_callback],
+        "callbacks": [checkpoint_callback, stopping_callback],
         "precision": 16 if args.mixed_precision else 32,
     }
     trainer = pl.Trainer(**trainer_args)
