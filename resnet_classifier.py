@@ -12,7 +12,6 @@ import torchvision.models as models
 from torch.optim import SGD, Adam
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
-from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
 
@@ -26,6 +25,13 @@ class ResNetClassifier(pl.LightningModule):
         50: models.resnet50,
         101: models.resnet101,
         152: models.resnet152,
+    }
+    weights = {
+        18: models.ResNet18_Weights.IMAGENET1K_V1,
+        34: models.ResNet34_Weights.IMAGENET1K_V1,
+        50: models.ResNet50_Weights.IMAGENET1K_V2,
+        101: models.ResNet101_Weights.IMAGENET1K_V2,
+        152: models.ResNet152_Weights.IMAGENET1K_V2,
     }
     optimizers = {"adam": Adam, "sgd": SGD}
 
@@ -60,8 +66,13 @@ class ResNetClassifier(pl.LightningModule):
         self.acc = Accuracy(
             task="binary" if num_classes == 1 else "multiclass", num_classes=num_classes
         )
-        # Using a pretrained ResNet backbone
-        self.resnet_model = self.resnets[resnet_version](pretrained=transfer)
+        weights = None
+        if transfer:
+            # Using a pretrained ResNet backbone
+            weights=self.weights[resnet_version]
+        self.resnet_model = self.resnets[resnet_version](weights=weights)
+        # Inference transforms. Potential improvement: use train transforms from pytorch recipes (flip, ...)
+        self.transforms = self.weights[resnet_version].transforms
         # Replace old FC layer with Identity so we can train our own
         linear_size = list(self.resnet_model.children())[-1].in_features
         # replace final layer for fine tuning
@@ -92,15 +103,7 @@ class ResNetClassifier(pl.LightningModule):
 
     def _dataloader(self, data_path, shuffle=False):
         # values here are specific to pneumonia dataset and should be updated for custom data
-        transform = transforms.Compose(
-            [
-                transforms.Resize((500, 500)),
-                transforms.ToTensor(),
-                transforms.Normalize((0.48232,), (0.23051,)),
-            ]
-        )
-
-        img_folder = ImageFolder(data_path, transform=transform)
+        img_folder = ImageFolder(data_path, transform=self.transforms)
 
         return DataLoader(img_folder, batch_size=self.batch_size, shuffle=shuffle)
 
@@ -203,7 +206,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # # Instantiate Model
     model = ResNetClassifier(
         num_classes=args.num_classes,
         resnet_version=args.model,
@@ -232,7 +234,7 @@ if __name__ == "__main__":
     # Instantiate lightning trainer and train model
     trainer_args = {
         "accelerator": "gpu" if args.gpus else None,
-       "devices": [0],
+        "devices": [0],
         "strategy": "ddp" if args.gpus > 1 else "auto",
         "max_epochs": args.num_epochs,
         "callbacks": [checkpoint_callback, stopping_callback],
